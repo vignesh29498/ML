@@ -1,41 +1,44 @@
-import pandas as pd
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.preprocessing import LabelEncoder
-from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder
+import numpy as np
 import joblib
 
-# Load the dataset
-file_path = '/path/to/your/dataset.csv'
-df = pd.read_csv(file_path)
+# Load the trained model and encoders
+knn = joblib.load('knn_model.pkl')
+label_encoder = joblib.load('label_encoder.pkl')
+preprocessor = joblib.load('preprocessor.pkl')
 
-# Prepare features and labels
-X = df[['value']]
-y = df['label']
+# Function to predict labels for new values and handle matched/unmatched
+def predict_labels_and_handle_indices(values_list, indices_list):
+    matched_values = []
+    non_matched_values = []
+    matched_indices = []
+    non_matched_indices = []
 
-# Encode labels
-label_encoder = LabelEncoder()
-y_encoded = label_encoder.fit_transform(y)
+    # Preprocess new values
+    values_df = pd.DataFrame({'value': values_list})
+    values_processed = preprocessor.transform(values_df)
 
-# Preprocess the 'value' column
-preprocessor = ColumnTransformer(
-    transformers=[
-        ('cat', OneHotEncoder(), ['value'])
-    ],
-    remainder='passthrough'
-)
+    for value, index, processed_value in zip(values_list, indices_list, values_processed):
+        try:
+            # Predict the label for the processed value
+            prediction = knn.predict([processed_value])
+            predicted_label = label_encoder.inverse_transform(prediction)[0]
+            matched_values.append(predicted_label)
+            matched_indices.append(index)
+        except Exception as e:
+            # If prediction fails, add to non-matched lists
+            non_matched_values.append(value)
+            non_matched_indices.append(index)
 
-X_processed = preprocessor.fit_transform(X)
+    return (matched_values, matched_indices), (non_matched_values, non_matched_indices)
 
-# Initialize KNN classifier
-knn = KNeighborsClassifier(n_neighbors=3)
+# Example usage
+values_list = ['USA', 'success', 'unknown_value']  # Replace with your list of new values
+indices_list = [0, 1, 2]  # Replace with corresponding indices
 
-# Train the classifier
-knn.fit(X_processed, y_encoded)
+(matched_values, matched_indices), (non_matched_values, non_matched_indices) = predict_labels_and_handle_indices(values_list, indices_list)
 
-# Save the trained model and encoders
-joblib.dump(knn, 'knn_model.pkl')
-joblib.dump(label_encoder, 'label_encoder.pkl')
-joblib.dump(preprocessor, 'preprocessor.pkl')
-
-print("KNN model trained and saved.")
+# Print the results
+print("Matched Values:", matched_values)
+print("Matched Indices:", matched_indices)
+print("Non-Matched Values:", non_matched_values)
+print("Non-Matched Indices:", non_matched_indices)
