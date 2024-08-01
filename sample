@@ -1,51 +1,75 @@
+import pandas as pd
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.preprocessing import LabelEncoder
 import joblib
+
+# Load the dataset
+file_path = '/path/to/your/dataset.csv'
+df = pd.read_csv(file_path)
+
+# Encode labels
+label_encoder = LabelEncoder()
+df['label_encoded'] = label_encoder.fit_transform(df['label'])
+
+# Prepare data for training
+X = df[['value']]
+y = df['label_encoded']
+
+# Initialize KNN classifier
+knn = KNeighborsClassifier(n_neighbors=3)  # Example: set the number of neighbors
+
+# Train the classifier
+knn.fit(X, y)
+
+# Save the trained model and label encoder
+joblib.dump(knn, 'knn_model.pkl')
+joblib.dump(label_encoder, 'label_encoder.pkl')
+
+print("KNN model trained and saved.")
+
+
+
+
+
 import numpy as np
+import pandas as pd
+import joblib
 
 # Load the trained model and label encoder
-model = joblib.load('trained_model.pkl')
+knn = joblib.load('knn_model.pkl')
 label_encoder = joblib.load('label_encoder.pkl')
 
-# Function to make predictions and handle unmatched values
-def predict_labels_and_handle_unmatched(values_list, indices_list):
-    matched_list = []
-    non_matched_list = []
+# Function to predict labels for new values and handle matched/unmatched
+def predict_labels_and_handle_indices(values_list, indices_list):
+    matched_values = []
+    non_matched_values = []
     matched_indices = []
     non_matched_indices = []
 
     for value, index in zip(values_list, indices_list):
+        value_array = np.array([value]).reshape(-1, 1)
+
         try:
-            # Try to convert value to integer (if possible)
-            value = int(value)
-        except ValueError:
-            pass
-
-        # Check if value is numeric after conversion
-        if isinstance(value, (int, float)):
-            # If numeric, assume it's a numerical feature (handle as needed)
-            # Example: you might want to directly append the value or perform specific handling
-            non_matched_list.append(value)
+            # Predict the label for the value
+            prediction = knn.predict(value_array)
+            predicted_label = label_encoder.inverse_transform(prediction)[0]
+            matched_values.append(predicted_label)
+            matched_indices.append(index)
+        except:
+            # If prediction fails, add to non-matched lists
+            non_matched_values.append(value)
             non_matched_indices.append(index)
-        else:
-            # Encode label if it exists in the label_encoder classes
-            if value in label_encoder.classes_:
-                prediction = model.predict([label_encoder.transform([value])])[0]
-                label = label_encoder.inverse_transform([prediction])[0]
-                matched_list.append(label)
-                matched_indices.append(index)
-            else:
-                non_matched_list.append(value)
-                non_matched_indices.append(index)
 
-    return matched_list, non_matched_list, matched_indices, non_matched_indices
+    return (matched_values, matched_indices), (non_matched_values, non_matched_indices)
 
 # Example usage
-values_list = ['USA', 155, 2546, 16545, 'vicjy', 'US']  # Replace with your list of values
-indices_list = [0, 1, 2, 3, 4, 5]  # Replace with corresponding indices
+values_list = ['USA', 'success', 'unknown_value']  # Replace with your list of new values
+indices_list = [0, 1, 2]  # Replace with corresponding indices
 
-matched_list, non_matched_list, matched_indices, non_matched_indices = predict_labels_and_handle_unmatched(values_list, indices_list)
+(matched_values, matched_indices), (non_matched_values, non_matched_indices) = predict_labels_and_handle_indices(values_list, indices_list)
 
 # Print the results
-print("Matched List:", matched_list)
-print("Non-Matched List:", non_matched_list)
+print("Matched Values:", matched_values)
 print("Matched Indices:", matched_indices)
+print("Non-Matched Values:", non_matched_values)
 print("Non-Matched Indices:", non_matched_indices)
