@@ -20,10 +20,8 @@ df_t['label_encoded'] = label_encoder.fit_transform(df_t['label'])
 # Save the label encoder for later use
 joblib.dump(label_encoder, 'label_encoder.pkl')
 
-# Assuming 'value' column contains categorical data, encode using OneHotEncoder
-# Adjust this part based on the nature of your 'value' column
-# If 'value' is numeric and continuous, OneHotEncoder might not be necessary
-value_encoder = OneHotEncoder(sparse=False)
+# Encode the values using OneHotEncoder
+value_encoder = OneHotEncoder(handle_unknown='ignore', sparse=False)
 X = value_encoder.fit_transform(df_t[['value']])
 
 # Save the value encoder for later use
