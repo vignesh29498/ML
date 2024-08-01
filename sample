@@ -1,12 +1,22 @@
-import numpy as np
-import joblib
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder
 
-# Load the trained model and encoders
-knn = joblib.load('knn_model.pkl')
-label_encoder = joblib.load('label_encoder.pkl')
-preprocessor = joblib.load('preprocessor.pkl')
+# Preprocess the 'value' column with handle_unknown='ignore'
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('cat', OneHotEncoder(handle_unknown='ignore'), ['value'])
+    ],
+    remainder='passthrough'
+)
 
-# Function to predict labels for new values and handle matched/unmatched
+X_processed = preprocessor.fit_transform(X)
+
+# Save the preprocessor
+joblib.dump(preprocessor, 'preprocessor.pkl')
+
+
+
+
 def predict_labels_and_handle_indices(values_list, indices_list):
     matched_values = []
     non_matched_values = []
@@ -18,6 +28,11 @@ def predict_labels_and_handle_indices(values_list, indices_list):
     values_processed = preprocessor.transform(values_df)
 
     for value, index, processed_value in zip(values_list, indices_list, values_processed):
+        if value not in preprocessor.named_transformers_['cat'].categories_[0]:
+            non_matched_values.append(value)
+            non_matched_indices.append(index)
+            continue
+
         try:
             # Predict the label for the processed value
             prediction = knn.predict([processed_value])
@@ -30,15 +45,3 @@ def predict_labels_and_handle_indices(values_list, indices_list):
             non_matched_indices.append(index)
 
     return (matched_values, matched_indices), (non_matched_values, non_matched_indices)
-
-# Example usage
-values_list = ['USA', 'success', 'unknown_value']  # Replace with your list of new values
-indices_list = [0, 1, 2]  # Replace with corresponding indices
-
-(matched_values, matched_indices), (non_matched_values, non_matched_indices) = predict_labels_and_handle_indices(values_list, indices_list)
-
-# Print the results
-print("Matched Values:", matched_values)
-print("Matched Indices:", matched_indices)
-print("Non-Matched Values:", non_matched_values)
-print("Non-Matched Indices:", non_matched_indices)
