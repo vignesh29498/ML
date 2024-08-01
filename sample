@@ -1,87 +1,51 @@
-import pandas as pd
-from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 import joblib
+import numpy as np
 
-# Load the CSV file
-file_path = '/content/knowxlsx.csv'
-df = pd.read_csv(file_path)
+# Load the trained model and label encoder
+model = joblib.load('trained_model.pkl')
+label_encoder = joblib.load('label_encoder.pkl')
 
-# Transpose the dataframe so that each value has an associated label
-df_t = df.set_index('label').T
-df_t = df_t.melt(var_name='label', value_name='value')
+# Function to make predictions and handle unmatched values
+def predict_labels_and_handle_unmatched(values_list, indices_list):
+    matched_list = []
+    non_matched_list = []
+    matched_indices = []
+    non_matched_indices = []
 
-# Drop missing values if any
-df_t.dropna(inplace=True)
+    for value, index in zip(values_list, indices_list):
+        try:
+            # Try to convert value to integer (if possible)
+            value = int(value)
+        except ValueError:
+            pass
 
-# Encode the labels
-label_encoder = LabelEncoder()
-df_t['label_encoded'] = label_encoder.fit_transform(df_t['label'])
+        # Check if value is numeric after conversion
+        if isinstance(value, (int, float)):
+            # If numeric, assume it's a numerical feature (handle as needed)
+            # Example: you might want to directly append the value or perform specific handling
+            non_matched_list.append(value)
+            non_matched_indices.append(index)
+        else:
+            # Encode label if it exists in the label_encoder classes
+            if value in label_encoder.classes_:
+                prediction = model.predict([label_encoder.transform([value])])[0]
+                label = label_encoder.inverse_transform([prediction])[0]
+                matched_list.append(label)
+                matched_indices.append(index)
+            else:
+                non_matched_list.append(value)
+                non_matched_indices.append(index)
 
-# Save the label encoder for later use
-joblib.dump(label_encoder, 'label_encoder.pkl')
+    return matched_list, non_matched_list, matched_indices, non_matched_indices
 
-# Encode the values using OneHotEncoder
-value_encoder = OneHotEncoder(handle_unknown='ignore', sparse=False)
-X = value_encoder.fit_transform(df_t[['value']])
+# Example usage
+values_list = ['USA', 155, 2546, 16545, 'vicjy', 'US']  # Replace with your list of values
+indices_list = [0, 1, 2, 3, 4, 5]  # Replace with corresponding indices
 
-# Save the value encoder for later use
-joblib.dump(value_encoder, 'value_encoder.pkl')
+matched_list, non_matched_list, matched_indices, non_matched_indices = predict_labels_and_handle_unmatched(values_list, indices_list)
 
-y = df_t['label_encoded']
-
-# Print or inspect X and y to ensure they are as expected
-print(X.shape)  # Check the shape of X to verify encoding
-
-# Optionally, you can inspect the first few rows of df_t to ensure correct encoding
-# df_t.head()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-import pandas as pd
-from sklearn.preprocessing import LabelEncoder
-import joblib
-
-# Load the CSV file
-file_path = '/content/knowxlsx.csv'
-df = pd.read_csv(file_path)
-
-# Transpose the dataframe so that each value has an associated label
-df_t = df.set_index('label').T
-df_t = df_t.melt(var_name='label', value_name='value')
-
-# Drop missing values if any
-df_t.dropna(inplace=True)
-
-# Encode the labels
-label_encoder = LabelEncoder()
-df_t['label_encoded'] = label_encoder.fit_transform(df_t['label'])
-
-# Save the label encoder for later use
-joblib.dump(label_encoder, 'label_encoder.pkl')
-
-# Encode the values using pd.get_dummies
-X = pd.get_dummies(df_t['value'], prefix='value')
-
-# Save the value encoder for later use
-# (Note: pd.get_dummies doesn't need saving like OneHotEncoder)
-# joblib.dump(value_encoder, 'value_encoder.pkl')
-
-y = df_t['label_encoded']
-
-# Print or inspect X and y to ensure they are as expected
-print(X.shape)  # Check the shape of X to verify encoding
-
-# Optionally, you can inspect the first few rows of df_t to ensure correct encoding
-# df_t.head()
+# Print the results
+print("Matched List:", matched_list)
+print("Non-Matched List:", non_matched_list)
+print("Matched Indices:", matched_indices)
+print("Non-Matched Indices:", non_matched_indices)
