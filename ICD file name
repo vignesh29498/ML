@@ -1,0 +1,78 @@
+import os
+import pandas as pd
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+# Global vectorizer to ensure consistent feature space
+vectorizer = TfidfVectorizer()
+
+# Function to read and analyze CSV files in a folder
+def analyze_csv_files(folder_path):
+    all_files = [f for f in os.listdir(folder_path) if f.endswith('.csv')]
+    pattern_list = []
+    global vectorizer  # Use the global vectorizer to ensure consistent feature space
+    
+    for file_name in all_files:
+        file_path = os.path.join(folder_path, file_name)
+        df = pd.read_csv(file_path)
+        pattern = extract_pattern_from_df(df)
+        pattern_list.append((file_name, pattern))
+    
+    return pattern_list
+
+# Function to extract pattern from DataFrame (example: using TF-IDF)
+def extract_pattern_from_df(df):
+    # Use the global vectorizer to ensure the same feature space
+    df_str = df.astype(str).apply(lambda x: ' '.join(x), axis=1)
+    tfidf_matrix = vectorizer.fit_transform(df_str)
+    pattern = tfidf_matrix.mean(axis=0)
+    pattern_array = np.asarray(pattern).reshape(1, -1)  # Convert to NumPy array with consistent shape
+    return pattern_array
+
+# Function to match patterns with file names in another folder
+def match_patterns_with_filenames(pattern_list, target_folder):
+    target_files = [f for f in os.listdir(target_folder) if f.endswith('.csv')]
+    best_match = None
+    best_similarity = -1
+    
+    for target_file in target_files:
+        target_file_path = os.path.join(target_folder, target_file)
+        target_df = pd.read_csv(target_file_path)
+        target_pattern = extract_pattern_from_df(target_df)
+        
+        for (file_name, pattern) in pattern_list:
+            # Ensure pattern arrays have consistent dimensions
+            if pattern.shape[1] == target_pattern.shape[1]:
+                # Calculate similarity (cosine similarity)
+                similarity = cosine_similarity(pattern, target_pattern)
+                
+                # Track the best match
+                if similarity > best_similarity:
+                    best_similarity = similarity
+                    best_match = target_file
+    
+    return best_match
+
+# Function to predict output file name for a new input file
+def predict_output_file(new_file_path, pattern_list, target_folder):
+    new_df = pd.read_csv(new_file_path)
+    new_pattern = extract_pattern_from_df(new_df)
+    
+    # Match new pattern with file names in target folder
+    matched_file = match_patterns_with_filenames([(new_file_path, new_pattern)], target_folder)
+    return matched_file
+
+# Example usage
+if __name__ == "__main__":
+    # Specify paths for your folders
+    train_folder_path = '/content/sample_data'  # Change this to your train folder path
+    match_folder_path = '/content/ICD'  # Change this to your match folder path
+    new_file_path = '/content/Book2.csv'  # Change this to your new file path
+    # Analyze CSV files in the train folder
+    pattern_list = analyze_csv_files(train_folder_path)
+    
+    # Predict output file name for the new input file
+    output_file_name = predict_output_file(new_file_path, pattern_list, match_folder_path)
+    
+    print(f"Predicted output file name: {output_file_name}")
