@@ -1,53 +1,65 @@
 import os
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 # Configuration: Define paths here
 config = {
-    'training_file_path': '/content/d.csv',  # Path to your training CSV
-    'new_file_path': '/content/Book2.csv',  # Path to the new file
+    'training_file_path': '/content/training_data.csv',  # Path to your training CSV
+    'new_file_path': '/content/new_file.csv',  # Path to the new file for prediction
 }
 
 # Initialize the vectorizer
 vectorizer = TfidfVectorizer(stop_words='english')
 
 def load_training_data(training_file_path):
+    """
+    Load and preprocess training data from a CSV file.
+    """
     df = pd.read_csv(training_file_path)
-
+    
     # Ensure necessary columns exist
     if 'train_file_path' not in df.columns or 'match_file_path' not in df.columns:
         raise ValueError("CSV must contain 'train_file_path' and 'match_file_path' columns")
 
     # Extract file paths and corresponding match files
-    train_file_paths = df['train_file_path'].dropna().unique()
-    match_file_paths = df['match_file_path'].dropna().unique()
-
+    train_file_paths = df['train_file_path'].dropna().tolist()
+    match_file_paths = df['match_file_path'].dropna().tolist()
+    
     if len(train_file_paths) != len(match_file_paths):
         raise ValueError("The number of training file paths must match the number of match file paths.")
-
+    
     # Fit vectorizer on all training files
     all_texts = []
     for file_path in train_file_paths:
         if isinstance(file_path, str) and os.path.isfile(file_path):
             try:
                 df = pd.read_csv(file_path)
-                all_texts.extend(df.astype(str).apply(lambda x: ' '.join(x), axis=1))
+                text_data = df.astype(str).apply(lambda x: ' '.join(x), axis=1)
+                all_texts.extend(text_data)
             except Exception as e:
                 print(f"Error reading file {file_path}: {e}")
+        else:
+            print(f"Invalid or missing file path: {file_path}")
+
+    # Check if there is valid data to fit the vectorizer
+    if not all_texts:
+        raise ValueError("No valid text data found in training files.")
 
     # Fit vectorizer on combined text data
     vectorizer.fit(all_texts)
-
+    
     pattern_list = analyze_csv_files(train_file_paths)
-
+    
     return pattern_list, match_file_paths
 
 def analyze_csv_files(file_paths):
+    """
+    Analyze CSV files and extract patterns using TF-IDF vectorization.
+    """
     pattern_list = []
-
+    
     for file_path in file_paths:
         if isinstance(file_path, str) and os.path.isfile(file_path):
             try:
@@ -58,10 +70,13 @@ def analyze_csv_files(file_paths):
                 print(f"Error processing file {file_path}: {e}")
         else:
             print(f"Invalid or missing file path: {file_path}")
-
+    
     return pattern_list
 
 def extract_pattern_from_df(df):
+    """
+    Extract patterns from DataFrame using TF-IDF vectorization.
+    """
     df_str = df.astype(str).apply(lambda x: ' '.join(x), axis=1)
     tfidf_matrix = vectorizer.transform(df_str)  # Use transform instead of fit_transform
     pattern = tfidf_matrix.mean(axis=0)
@@ -69,16 +84,19 @@ def extract_pattern_from_df(df):
     return pattern_array
 
 def predict_file_name(new_file_path, pattern_list, match_file_paths):
+    """
+    Predict matching file name for a new file based on cosine similarity.
+    """
     if isinstance(new_file_path, str) and os.path.isfile(new_file_path):
         try:
             new_df = pd.read_csv(new_file_path)
             new_pattern = extract_pattern_from_df(new_df)
             similarities = []
-
+            
             for _, pattern in pattern_list:
                 similarity = cosine_similarity(pattern, new_pattern)
                 similarities.append(similarity)
-
+            
             best_match_idx = np.argmax(similarities)
             return match_file_paths[best_match_idx]
         except Exception as e:
@@ -88,11 +106,17 @@ def predict_file_name(new_file_path, pattern_list, match_file_paths):
         print(f"Invalid or missing new file path: {new_file_path}")
         return None
 
-# Main function
 if __name__ == "__main__":
-    # Load and analyze training data
-    pattern_list, match_file_paths = load_training_data(config['training_file_path'])
-
-    # Predict file name for the new file
-    predicted_file_name = predict_file_name(config['new_file_path'], pattern_list, match_file_paths)
-    print(f"Predicted file name: {predicted_file_name}")
+    try:
+        # Load and analyze training data
+        pattern_list, match_file_paths = load_training_data(config['training_file_path'])
+        
+        # Predict file name for the new file
+        predicted_file_name = predict_file_name(config['new_file_path'], pattern_list, match_file_paths)
+        
+        if predicted_file_name:
+            print(f"Predicted file name: {predicted_file_name}")
+        else:
+            print("Prediction failed.")
+    except Exception as e:
+        print(f"Error: {e}")
