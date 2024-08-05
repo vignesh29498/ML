@@ -1,12 +1,17 @@
-Step 1: ConfigurationFirst, set up the configuration with paths to your training and new files.# Configuration: Define paths here
+import os
+import pandas as pd
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+# Configuration: Define paths here
 config = {
     'training_file_path': '/content/training_data.csv',  # Path to your training CSV
     'new_file_path': '/content/new_file.csv',  # Path to the new file for prediction
-}Step 2: Initialize the VectorizerWe need a global TF-IDF vectorizer.from sklearn.feature_extraction.text import TfidfVectorizer
+}
 
 # Initialize the vectorizer
-vectorizer = TfidfVectorizer(stop_words='english')Step 3: Load and Preprocess Training DataDefine a function to load the training data and fit the TF-IDF vectorizer.import pandas as pd
-import os
+vectorizer = TfidfVectorizer(stop_words='english')
 
 def load_training_data(training_file_path):
     """
@@ -42,7 +47,9 @@ def load_training_data(training_file_path):
     
     pattern_list = analyze_csv_files(train_file_paths)
     
-    return pattern_list, match_file_pathsStep 4: Analyze CSV FilesDefine a function to analyze the training files and extract patterns using the TF-IDF vectorizer.def analyze_csv_files(file_paths):
+    return pattern_list, match_file_paths
+
+def analyze_csv_files(file_paths):
     """
     Analyze CSV files and extract patterns using TF-IDF vectorization.
     """
@@ -59,7 +66,7 @@ def load_training_data(training_file_path):
         else:
             print(f"Invalid or missing file path: {file_path}")
     
-    return pattern_listStep 5: Extract Pattern from DataFrameDefine a function to extract patterns from a DataFrame using TF-IDF vectorization.import numpy as np
+    return pattern_list
 
 def extract_pattern_from_df(df):
     """
@@ -69,7 +76,7 @@ def extract_pattern_from_df(df):
     tfidf_matrix = vectorizer.transform(df_str)  # Use transform instead of fit_transform
     pattern = tfidf_matrix.mean(axis=0)
     pattern_array = np.asarray(pattern).reshape(1, -1)  # Convert to NumPy array with consistent shape
-    return pattern_arrayStep 6: Predict File NameDefine a function to predict the matching file name for a new file based on the extracted patterns.from sklearn.metrics.pairwise import cosine_similarity
+    return pattern_array
 
 def predict_file_name(new_file_path, pattern_list, match_file_paths):
     """
@@ -92,16 +99,7 @@ def predict_file_name(new_file_path, pattern_list, match_file_paths):
             return None
     else:
         print(f"Invalid or missing new file path: {new_file_path}")
-        return NoneStep 7: Main ExecutionFinally, put everything together in the main execution block.if __name__ == "__main__":
+        return None
+
+if __name__ == "__main__":
     # Load and analyze training data
-    try:
-        pattern_list, match_file_paths = load_training_data(config['training_file_path'])
-        
-        # Predict file name for the new file
-        predicted_file_name = predict_file_name(config['new_file_path'], pattern_list, match_file_paths)
-        if predicted_file_name:
-            print(f"Predicted file name: {predicted_file_name}")
-        else:
-            print("Prediction failed.")
-    except Exception as e:
-        print(f"Error: {e}")
