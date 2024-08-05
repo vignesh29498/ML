@@ -102,4 +102,16 @@ def predict_file_name(new_file_path, pattern_list, match_file_paths):
         return None
 
 if __name__ == "__main__":
-    # Load and analyze training data
+    try:
+        # Load and analyze training data
+        pattern_list, match_file_paths = load_training_data(config['training_file_path'])
+        
+        # Predict file name for the new file
+        predicted_file_name = predict_file_name(config['new_file_path'], pattern_list, match_file_paths)
+        
+        if predicted_file_name:
+            print(f"Predicted file name: {predicted_file_name}")
+        else:
+            print("Prediction failed.")
+    except Exception as e:
+        print(f"Error: {e}")
